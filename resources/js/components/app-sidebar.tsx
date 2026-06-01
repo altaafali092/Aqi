@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import { BookOpen, FolderGit2, Home, LayoutGrid } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -17,6 +17,7 @@ import {
 import type { NavItem } from '@/types';
 import { index as permissionIndex } from '@/routes/admin/permissions';
 import { dashboard } from '@/routes/admin';
+import { index as WardIndex } from '@/routes/admin/wards';
 
 const mainNavItems: NavItem[] = [
     {
@@ -28,6 +29,11 @@ const mainNavItems: NavItem[] = [
         title: 'Permissions',
         href: permissionIndex().url,
         icon: LayoutGrid,
+    },
+    {
+        title: 'Wards',
+        href: WardIndex().url,
+        icon: Home,
     },
 ];
 

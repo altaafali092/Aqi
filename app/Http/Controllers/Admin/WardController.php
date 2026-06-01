@@ -48,30 +48,27 @@ class WardController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(Ward $ward)
     {
-        $ward = Ward::findOrFail($id);
         return Inertia::render('Admin/Wards/Show', ['ward' => $ward]);
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id)
+    public function edit(Ward $ward)
     {
-        $ward = Ward::findOrFail($id);
         return Inertia::render('Admin/Wards/Edit', ['ward' => $ward]);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, Ward $ward)
     {
-        $ward = Ward::findOrFail($id);
 
         $validated = $request->validate([
-            'number' => 'required|integer|unique:wards,number,' . $ward->id,
+            'number' => 'required|integer|unique:wards,number,'.$ward->id,
             'name' => 'nullable|string',
             'boundary' => 'nullable|json',
         ]);
@@ -84,9 +81,9 @@ class WardController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Ward $ward)
     {
-        $ward = Ward::findOrFail($id);
+
         $ward->delete();
 
         return redirect()->back()->with('success', 'Ward deleted.');
