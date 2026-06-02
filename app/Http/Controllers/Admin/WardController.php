@@ -77,7 +77,6 @@ class WardController extends Controller
 
         $ward->delete();
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Ward deleted successfully.']);
-
-        return back();
+        return back();  
     }
 }
