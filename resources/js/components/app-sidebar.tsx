@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, Home, LayoutGrid } from 'lucide-react';
+import { BookOpen, FolderGit2, Home, LayoutGrid, WashingMachine } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -18,6 +18,7 @@ import type { NavItem } from '@/types';
 import { index as permissionIndex } from '@/routes/admin/permissions';
 import { dashboard } from '@/routes/admin';
 import { index as WardIndex } from '@/routes/admin/wards';
+import { index as MuncipleIndex } from '@/routes/admin/municipal-wastes';
 
 const mainNavItems: NavItem[] = [
     {
@@ -34,6 +35,11 @@ const mainNavItems: NavItem[] = [
         title: 'Wards',
         href: WardIndex().url,
         icon: Home,
+    },
+    {
+        title: 'Municipal Wastes',
+        href: MuncipleIndex().url,
+        icon: WashingMachine,
     },
 ];
 
