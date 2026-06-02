@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Ward\StoreWardRequest;
+use App\Http\Requests\Ward\UpdateWardRequest;
 use App\Models\Ward;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class WardController extends Controller
@@ -32,17 +33,12 @@ class WardController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreWardRequest $request)
     {
-        $validated = $request->validate([
-            'number' => 'required|integer|unique:wards,number',
-            'name' => 'nullable|string',
-            'boundary' => 'nullable|json',
-        ]);
+        Ward::create($request->validated());
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Ward created successfully.']);
 
-        Ward::create($validated);
-
-        return redirect()->back()->with('success', 'Ward created.');
+        return to_route('admin.wards.index');
     }
 
     /**
@@ -64,18 +60,13 @@ class WardController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Ward $ward)
+    public function update(UpdateWardRequest $request, Ward $ward)
     {
 
-        $validated = $request->validate([
-            'number' => 'required|integer|unique:wards,number,'.$ward->id,
-            'name' => 'nullable|string',
-            'boundary' => 'nullable|json',
-        ]);
+        $ward->update($request->validated());
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Ward updated successfully.']);
 
-        $ward->update($validated);
-
-        return redirect()->back()->with('success', 'Ward updated.');
+        return to_route('admin.wards.index');
     }
 
     /**
@@ -85,7 +76,8 @@ class WardController extends Controller
     {
 
         $ward->delete();
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Ward deleted successfully.']);
 
-        return redirect()->back()->with('success', 'Ward deleted.');
+        return back();
     }
 }

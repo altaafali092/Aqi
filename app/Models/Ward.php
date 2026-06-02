@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['number', 'name'])]
+#[Fillable(['number','name', 'boundary'])]
 
 class Ward extends Model
 {

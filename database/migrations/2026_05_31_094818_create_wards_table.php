@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->integer('number')->unique();
             $table->string('name')->nullable();
-            $table->json('boundary')->nullable();
+            $table->json('boundary')->nullable();  // stores {  coordinates : [  [] ] } format to store polygon coordinates
             $table->timestamps();
         });
     }
