@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { login } from '@/routes';
-import { store } from '@/routes/register';
+import { citizenRegisterStore, login } from '@/routes';
+import { citizenLoginPage } from '@/actions/App/Http/Controllers/Citizen/AuthController';
 
 type Props = {
     passwordRules: string;
@@ -18,7 +18,7 @@ export default function Register({ passwordRules }: Props) {
         <>
             <Head title="Register" />
             <Form
-                {...store.form()}
+                {...citizenRegisterStore.form()}
                 resetOnSuccess={['password', 'password_confirmation']}
                 disableWhileProcessing
                 className="flex flex-col gap-6"
@@ -43,6 +43,23 @@ export default function Register({ passwordRules }: Props) {
                                     className="mt-2"
                                 />
                             </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="ward_no">Ward No</Label>
+                                <Input
+                                    id="ward_no"
+                                    type="number"
+                                    required
+                                    autoFocus
+                                    tabIndex={2}
+                                    autoComplete="ward_no"
+                                    name="ward_no"
+                                    placeholder="Ward No"
+                                />
+                                <InputError
+                                    message={errors.ward_no}
+                                    className="mt-2"
+                                />
+                            </div>
 
                             <div className="grid gap-2">
                                 <Label htmlFor="email">Email address</Label>
@@ -50,7 +67,7 @@ export default function Register({ passwordRules }: Props) {
                                     id="email"
                                     type="email"
                                     required
-                                    tabIndex={2}
+                                    tabIndex={3}
                                     autoComplete="email"
                                     name="email"
                                     placeholder="email@example.com"
@@ -63,7 +80,7 @@ export default function Register({ passwordRules }: Props) {
                                 <PasswordInput
                                     id="password"
                                     required
-                                    tabIndex={3}
+                                    tabIndex={4}
                                     autoComplete="new-password"
                                     name="password"
                                     placeholder="Password"
@@ -79,7 +96,7 @@ export default function Register({ passwordRules }: Props) {
                                 <PasswordInput
                                     id="password_confirmation"
                                     required
-                                    tabIndex={4}
+                                    tabIndex={5}
                                     autoComplete="new-password"
                                     name="password_confirmation"
                                     placeholder="Confirm password"
@@ -93,7 +110,7 @@ export default function Register({ passwordRules }: Props) {
                             <Button
                                 type="submit"
                                 className="mt-2 w-full"
-                                tabIndex={5}
+                                tabIndex={6}
                                 data-test="register-user-button"
                             >
                                 {processing && <Spinner />}
@@ -103,7 +120,7 @@ export default function Register({ passwordRules }: Props) {
 
                         <div className="text-center text-sm text-muted-foreground">
                             Already have an account?{' '}
-                            <TextLink href={login()} tabIndex={6}>
+                            <TextLink href={citizenLoginPage()}  tabIndex={7}>
                                 Log in
                             </TextLink>
                         </div>

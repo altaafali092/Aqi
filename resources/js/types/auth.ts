@@ -9,8 +9,19 @@ export type User = {
     [key: string]: unknown;
 };
 
+export type Citizen = {
+    id: number;
+    name: string;
+    email: string;
+    ward_no: string;
+    created_at?: string;
+    updated_at?: string;
+    [key: string]: unknown;
+};
+
 export type Auth = {
-    user: User;
+    user: User | null;
+    citizen?: Citizen | null;
 };
 
 /* @chisel-passkeys */
