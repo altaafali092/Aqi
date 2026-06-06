@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 
 import type { NavItem } from '@/types';
-import { index as permissionIndex } from '@/routes/admin/permissions';
+
 import { dashboard } from '@/routes/admin';
 import { index as WardIndex } from '@/routes/admin/wards';
 import { index as MuncipleIndex } from '@/routes/admin/municipal-wastes';
@@ -26,11 +26,7 @@ const mainNavItems: NavItem[] = [
         href: dashboard(),
         icon: LayoutGrid,
     },
-    {
-        title: 'Permissions',
-        href: permissionIndex().url,
-        icon: LayoutGrid,
-    },
+
     {
         title: 'Wards',
         href: WardIndex().url,

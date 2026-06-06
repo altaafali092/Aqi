@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Head, Link, usePage } from '@inertiajs/react';
 
 import { citizenLoginPage, citizenRegisterPage, citizenLogout } from '@/actions/App/Http/Controllers/Citizen/AuthController';
+import { citizenRegister, register } from '@/routes';
 interface AuthCitizen {
     name: string;
     email: string;
@@ -65,7 +66,7 @@ export default function Welcome() {
                             EcoMonitor
                         </span>
                     </div>
-                    
+
                     <nav className="flex items-center gap-5">
                         {/* Conditional rendering depending on authentication state */}
                         {auth && auth.citizen ? (
@@ -94,7 +95,7 @@ export default function Welcome() {
                                     Log in
                                 </Link>
                                 <Link
-                                    href={citizenRegisterPage()}
+                                    href={citizenRegister()}
                                     className="px-5 py-2.5 text-sm font-semibold rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-200 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
                                 >
                                     Register

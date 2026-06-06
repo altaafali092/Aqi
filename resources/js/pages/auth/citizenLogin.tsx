@@ -42,19 +42,6 @@ export default function Login({ status, canResetPassword }: Props) {
                                 />
                                 <InputError message={errors.email} />
                             </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="ward_no">Ward No</Label>
-                                <Input
-                                    id="ward_no"
-                                    type="text"
-                                    name="ward_no"
-                                    required
-                                    tabIndex={2}
-                                    autoComplete="ward_no"
-                                    placeholder="Ward No"
-                                />
-                                <InputError message={errors.ward_no} />
-                            </div>
 
                             <div className="grid gap-2">
                                 <div className="flex items-center">

@@ -6,7 +6,6 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
-
 class CitizenRequest extends FormRequest
 {
     /**
@@ -24,10 +23,11 @@ class CitizenRequest extends FormRequest
      */
     public function rules(): array
     {
-       return [
-            'name' => ['required', 'string'],
-            'email' => ['required', 'string', 'email'],
-            'ward_no' => ['required', 'integer'],
+        return [
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'unique:users,email'],
+            'ward_id' => ['required', 'exists:wards,id'],
+            'phone' => ['required', 'string', 'max:20'],
             'password' => [
                 'required',
                 'confirmed',
@@ -35,9 +35,8 @@ class CitizenRequest extends FormRequest
                     ->letters()
                     ->mixedCase()
                     ->numbers()
-                    ->symbols()
+                    ->symbols(),
             ],
-
         ];
     }
 }

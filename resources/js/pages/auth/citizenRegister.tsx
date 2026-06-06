@@ -1,15 +1,16 @@
 import { Form, Head } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
-import { 
-    User, 
-    Mail, 
-    Lock, 
-    ShieldCheck, 
-    MapPin, 
-    ArrowRight, 
-    ArrowLeft, 
-    CheckCircle2, 
-    UserCheck
+import {
+    User,
+    Mail,
+    Lock,
+    ShieldCheck,
+    MapPin,
+    ArrowRight,
+    ArrowLeft,
+    CheckCircle2,
+    UserCheck,
+    Phone
 } from 'lucide-react';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
@@ -30,12 +31,12 @@ type Props = {
 
 export default function Register({ passwordRules, wards: rawWards }: Props) {
     const wards = Array.isArray(rawWards) ? rawWards : [];
-    
+
     return (
         <>
             <Head title="Register" />
             <Form
-                {...citizenRegisterStore.form()}
+                action={citizenRegisterStore()}
                 resetOnSuccess={['password', 'password_confirmation']}
                 disableWhileProcessing
                 className="flex flex-col gap-6"
@@ -74,7 +75,7 @@ function RegisterFormContent({
         { label: 'At least one number (0-9)', met: /[0-9]/.test(passwordVal) },
         { label: 'At least one special character', met: /[^A-Za-z0-9]/.test(passwordVal) },
     ];
-    
+
     const metCount = requirements.filter(req => req.met).length;
 
     // Direct redirection logic when server-side validation error occurs
@@ -98,9 +99,9 @@ function RegisterFormContent({
                 <div className="flex items-center justify-between px-6 relative w-full">
                     {/* Background Progress Line */}
                     <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 dark:bg-slate-800 -translate-y-1/2 z-0 rounded-full" />
-                    
+
                     {/* Colored Active Progress Line */}
-                    <div 
+                    <div
                         className="absolute top-1/2 left-0 h-0.5 bg-gradient-to-r from-emerald-500 to-cyan-500 -translate-y-1/2 transition-all duration-500 ease-out z-0 rounded-full"
                         style={{ width: step === 1 ? '50%' : '100%' }}
                     />
@@ -133,7 +134,7 @@ function RegisterFormContent({
                         <Lock className="h-4.5 w-4.5" />
                     </button>
                 </div>
-                
+
                 {/* Step Labels */}
                 <div className="flex justify-between text-xs font-semibold px-2 text-slate-500 dark:text-slate-400">
                     <span className={cn("transition-colors duration-300", step === 1 ? 'text-emerald-600 dark:text-emerald-400 font-bold' : '')}>Profile Details</span>
@@ -143,7 +144,7 @@ function RegisterFormContent({
 
             {/* Steps sliding viewport */}
             <div className="w-full overflow-hidden">
-                <div 
+                <div
                     className="flex w-[200%] transition-transform duration-500 ease-out"
                     style={{ transform: step === 1 ? 'translateX(0%)' : 'translateX(-50%)' }}
                 >
@@ -169,12 +170,12 @@ function RegisterFormContent({
                         </div>
 
                         <div className="grid gap-2 group">
-                            <Label htmlFor="ward_no" className="text-slate-700 dark:text-slate-300 font-medium">Ward Number</Label>
+                            <Label htmlFor="ward_id" className="text-slate-700 dark:text-slate-300 font-medium">Ward Number</Label>
                             <div className="relative">
                                 <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
                                 <select
-                                    id="ward_no"
-                                    name="ward_no"
+                                    id="ward_id"
+                                    name="ward_id"
                                     tabIndex={2}
                                     defaultValue=""
                                     required
@@ -193,7 +194,29 @@ function RegisterFormContent({
                                     </svg>
                                 </div>
                             </div>
-                            <InputError message={errors.ward_no} />
+                            <InputError message={errors.ward_id} />
+                        </div>
+                        <div className="grid gap-2 group">
+                            <Label htmlFor="phone" className="text-slate-700 dark:text-slate-300 font-medium">Phone Number</Label>
+                            <div className="relative">
+                                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
+                                <Input
+                                    id="phone"
+                                    name="phone"
+                                    type="number"
+                                    tabIndex={2}
+                                    defaultValue=""
+                                    required
+                                    className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-sm shadow-2xs transition-all outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800 dark:text-slate-200 appearance-none cursor-pointer"
+                                />
+
+                                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                    <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <InputError message={errors.phone} />
                         </div>
 
                         <Button
@@ -245,7 +268,7 @@ function RegisterFormContent({
                                 />
                             </div>
                             <InputError message={errors.password} />
-                            
+
                             {/* Live Password Indicator & checklist */}
                             {passwordVal && (
                                 <div className="mt-1 space-y-3 p-3 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/60 rounded-xl">
@@ -268,7 +291,7 @@ function RegisterFormContent({
                                             </span>
                                         </div>
                                         <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800/80 rounded-full overflow-hidden">
-                                            <div 
+                                            <div
                                                 className={cn(
                                                     "h-full transition-all duration-300 rounded-full",
                                                     metCount === 1 && "bg-red-500",
@@ -329,7 +352,7 @@ function RegisterFormContent({
                                 <ArrowLeft className="h-4 w-4" />
                                 Back
                             </Button>
-                            
+
                             <Button
                                 type="submit"
                                 disabled={processing}
@@ -348,8 +371,8 @@ function RegisterFormContent({
             {/* Bottom Link */}
             <div className="text-center text-sm text-slate-500 dark:text-slate-400 mt-2">
                 Already have an account?{' '}
-                <TextLink 
-                    href={citizenLoginPage()} 
+                <TextLink
+                    href={citizenLoginPage()}
                     tabIndex={8}
                     className="font-semibold text-emerald-600 hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors"
                 >

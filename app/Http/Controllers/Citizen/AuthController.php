@@ -5,32 +5,44 @@ namespace App\Http\Controllers\Citizen;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Citizen\CitizenRequest;
 use App\Http\Requests\Citizen\LoginRequest;
-use App\Models\Citizen;
+use App\Models\User;
 use App\Models\Ward;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 
 class AuthController extends Controller
 {
     public function citizenRegisterPage()
     {
-        $wards = Ward::all();
-
         return Inertia::render('auth/citizenRegister', [
-            'wards' => $wards,
+            'wards' => Ward::all(),
         ]);
     }
-    
 
     public function citizenRegisterStore(CitizenRequest $request)
     {
+        $data = $request->validated();
 
-        $citizen = Citizen::create($request->validated());
+        $citizen = User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'ward_id' => $data['ward_id'],
+            'phone' => $data['phone'],
+            'password' => Hash::make($data['password']),
+            'role' => 'citizen',
+            'status' => 'active',
+        ]);
+
         Auth::guard('citizen')->login($citizen);
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Citizen registered successfully.']);
 
-        return to_route('home');
+        session()->flash('toast', [
+            'type' => 'success',
+            'message' => 'Registered Successfully.',
+        ]);
+
+        return to_route('admin.dashboard');
     }
 
     public function citizenLoginPage()
@@ -40,17 +52,23 @@ class AuthController extends Controller
 
     public function citizenLogin(LoginRequest $request)
     {
-        if (Auth::guard('citizen')->attempt($request->only(
-            'email',
-            'password',
-            'ward_no'
-        ))) {
-            $request->session()->regenerate();
-            Inertia::flash('toast', ['type' => 'success', 'message' => 'Login Successfull.']);
+        $credentials = $request->only('email', 'password');
 
-            return to_route('home');
+        if (Auth::guard('citizen')->attempt($credentials)) {
+            $request->session()->regenerate();
+
+            session()->flash('toast', [
+                'type' => 'success',
+                'message' => 'Login Successful.',
+            ]);
+
+            return to_route('admin.dashboard');
         }
-        Inertia::flash('toast', ['type' => 'error', 'message' => 'Login Failed']);
+
+        session()->flash('toast', [
+            'type' => 'error',
+            'message' => 'Login Failed',
+        ]);
 
         return back();
     }
@@ -62,7 +80,10 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Logout Successful.']);
+        session()->flash('toast', [
+            'type' => 'success',
+            'message' => 'Logout Successful.',
+        ]);
 
         return to_route('home');
     }

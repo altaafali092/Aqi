@@ -16,6 +16,10 @@ class AuthSeeder extends Seeder
             ['email' => 'admin@admin.com'],
             [
                 'name' => 'Super Admin',
+                'ward_id' => null,
+                'phone' => 'null',
+                'role' => 'admin',
+                'status' => 'active',
                 'password' => bcrypt('password'),
             ]
         );
