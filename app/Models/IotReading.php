@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+
 class IotReading extends Model
 {
     use HasFactory;
@@ -26,4 +27,9 @@ class IotReading extends Model
         'temperature' => 'float',
         'humidity' => 'float',
     ];
+
+    public function ward()
+    {
+        return $this->belongsTo(Ward::class);
+    }
 }

@@ -7,13 +7,22 @@ use App\Http\Requests\MunicipalWaste\StoreWasteRequest;
 use App\Http\Requests\MunicipalWaste\UpdateWasteRequest;
 use App\Models\MunicipalWaste;
 use App\Models\Ward;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class MunicipalWasteController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $municipalWastes = MunicipalWaste::with('ward')->latest()->paginate(10);
+        $user = $request->user();
+        $query = MunicipalWaste::with('ward')->latest();
+
+        // Scope the records if the user belongs to a specific ward
+        if ($user && isset($user->ward_id)) {
+            $query->where('ward_id', $user->ward_id);
+        }
+
+        $municipalWastes = $query->paginate(10)->withQueryString();
 
         return Inertia::render('Admin/MunicipalWastes/Index', [
             'municipalWastes' => $municipalWastes,

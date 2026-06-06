@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Home, LayoutGrid, WashingMachine } from 'lucide-react';
+import { BookOpen, Cloud, Home, LayoutGrid, WashingMachine } from 'lucide-react';
 
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/sidebar';
 
 import type { NavItem } from '@/types';
-import { dashboard } from '@/routes/admin';
+import { dashboard, IotReadingsindex } from '@/routes/admin';
 import { index as WardIndex } from '@/routes/admin/wards';
 import { index as MuncipleIndex } from '@/routes/admin/municipal-wastes';
 
@@ -31,17 +31,24 @@ export function AppSidebar() {
             href: dashboard(),
             icon: LayoutGrid,
         },
+
         {
-            title: 'Wards',
-            href: WardIndex().url,
-            icon: Home,
+            title: "Iot Reading Data",
+            href: IotReadingsindex().url,
+            icon: Cloud,
+        },
+        {
+            title: 'Municipal Wastes',
+            href: MuncipleIndex().url,
+            icon: WashingMachine,
         },
         ...(role === 'admin'
             ? [
+
                 {
-                    title: 'Municipal Wastes',
-                    href: MuncipleIndex().url,
-                    icon: WashingMachine,
+                    title: 'Wards',
+                    href: WardIndex().url,
+                    icon: Home,
                 },
             ]
             : []),
