@@ -93,6 +93,11 @@ class IotReadingController extends Controller
                 'updated_at' => $latest?->recorded_at
                     ? Carbon::parse($latest->recorded_at)->diffForHumans()
                     : 'No telemetry yet',
+                'kg_per_person_day' => $latestWaste?->kg_per_person_per_day,
+                'health_risk_level' => $latestWaste?->health_risk_level ?? 'Low',
+                'health_warning' => $latestWaste?->health_warning ?? 'No waste record available for health warning.',
+                'nepal_reference_kg_per_person_day' => MunicipalWaste::NEPAL_REFERENCE_KG_PER_PERSON_DAY,
+                'global_reference_kg_per_person_day' => MunicipalWaste::GLOBAL_REFERENCE_KG_PER_PERSON_DAY,
             ];
         })->values();
 

@@ -1,9 +1,9 @@
-import { ColumnDef } from "@tanstack/react-table";
-import { Button } from "@/components/ui/button";
 import { Link, router } from "@inertiajs/react";
-import { EyeIcon, Pencil, Trash } from "lucide-react";
-import { MunicipalWaste } from "@/types/Admin/MunicipalWaste";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Pencil, Trash } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { destroy, edit } from "@/routes/admin/municipal-wastes";
+import type { MunicipalWaste } from "@/types/Admin/MunicipalWaste";
 
 
 
@@ -30,6 +30,16 @@ export const columns: ColumnDef<MunicipalWaste>[] = [
         accessorKey: 'collection_date',
         header: "Collection Date",
         cell: ({ row }) => new Date(row.original.collection_date).toLocaleDateString(),
+    },
+    {
+        accessorKey: 'kg_per_person_per_day',
+        header: "kg/person/day",
+        cell: ({ row }) => row.original.kg_per_person_per_day ?? '-',
+    },
+    {
+        accessorKey: 'health_risk_level',
+        header: "Health Risk",
+        cell: ({ row }) => row.original.health_risk_level ?? 'Low',
     },
 
     {

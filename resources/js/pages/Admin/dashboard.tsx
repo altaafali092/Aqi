@@ -17,6 +17,11 @@ interface WardStatusItem {
     collected: boolean;
     priority: 'Critical' | 'High' | 'Medium' | 'Low';
     updated_at: string;
+    kg_per_person_day: number | null;
+    health_risk_level: 'Critical' | 'High' | 'Medium' | 'Low';
+    health_warning: string;
+    nepal_reference_kg_per_person_day: number;
+    global_reference_kg_per_person_day: number;
 }
 
 interface HistoricalAqiItem {
@@ -205,10 +210,36 @@ setKpiMetrics(data.kpiMetrics);
     const areaPath = dbHistoricalData.length > 0
         ? `${linePath} L ${dbHistoricalData.at(-1)!.x},165 L ${dbHistoricalData[0].x},165 Z`
         : '';
+    const riskRank: Record<WardStatusItem['health_risk_level'], number> = {
+        Critical: 4,
+        High: 3,
+        Medium: 2,
+        Low: 1,
+    };
+    const highestWasteRisk = [...dbWardStatusData].sort(
+        (a, b) => riskRank[b.health_risk_level] - riskRank[a.health_risk_level],
+    )[0];
+    const getWasteRiskStyles = (risk: WardStatusItem['health_risk_level']) => {
+        if (risk === 'Critical') {
+            return { icon: AlertTriangle, color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-500/10', border: 'border-rose-100 dark:border-rose-500/20' };
+        }
+
+        if (risk === 'High') {
+            return { icon: AlertTriangle, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-500/10', border: 'border-orange-100 dark:border-orange-500/20' };
+        }
+
+        if (risk === 'Medium') {
+            return { icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-100 dark:border-amber-500/20' };
+        }
+
+        return { icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20' };
+    };
 
     // Dynamic contextual local environmental system statements
     const generateContextAlerts = () => {
         if (isCitizen && userWard) {
+            const wasteRiskStyles = getWasteRiskStyles(userWard.health_risk_level);
+
             return [
                 {
                     icon: userWard.aqi > 140 ? Flame : CheckCircle2,
@@ -220,20 +251,28 @@ setKpiMetrics(data.kpiMetrics);
                     time: 'Live updates'
                 },
                 {
-                    icon: userWard.collected ? CheckCircle2 : Clock,
-                    color: userWard.collected ? 'text-emerald-500' : 'text-amber-500',
-                    bg: userWard.collected ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-amber-50 dark:bg-amber-500/10',
-                    border: userWard.collected ? 'border-emerald-100 dark:border-emerald-500/20' : 'border-amber-100 dark:border-amber-500/20',
-                    title: `Municipal Sanitation Task`,
-                    desc: userWard.collected ? 'Garbage disposal operations successfully handled for today.' : 'Collection runs are still queued up for processing.',
+                    ...wasteRiskStyles,
+                    title: `${userWard.ward} Waste Health Risk: ${userWard.health_risk_level}`,
+                    desc: userWard.kg_per_person_day
+                        ? `${userWard.health_warning} Current rate: ${userWard.kg_per_person_day} kg/person/day; Nepal reference: ${userWard.nepal_reference_kg_per_person_day}.`
+                        : userWard.health_warning,
                     time: userWard.updated_at
                 }
             ];
         }
 
+        const wasteRiskStyles = highestWasteRisk ? getWasteRiskStyles(highestWasteRisk.health_risk_level) : getWasteRiskStyles('Low');
+
         return [
             { icon: Flame, color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-500/10', border: 'border-rose-100 dark:border-rose-500/20', title: 'High PM2.5 Grid Alert', desc: 'Sustained pollution spikes monitored in central industrial spaces.', time: '2 mins ago' },
-            { icon: AlertTriangle, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-100 dark:border-amber-500/20', title: 'Waste Queue Build up', desc: 'Multiple operational sectors indicate garbage values over 7 tons.', time: '14 mins ago' },
+            {
+                ...wasteRiskStyles,
+                title: highestWasteRisk ? `${highestWasteRisk.ward} Waste Health Risk: ${highestWasteRisk.health_risk_level}` : 'Waste Health Risk',
+                desc: highestWasteRisk?.kg_per_person_day
+                    ? `${highestWasteRisk.health_warning} Current rate: ${highestWasteRisk.kg_per_person_day} kg/person/day; Nepal reference: ${highestWasteRisk.nepal_reference_kg_per_person_day}.`
+                    : (highestWasteRisk?.health_warning ?? 'No ward waste health warning available.'),
+                time: highestWasteRisk?.updated_at ?? 'Waiting for records'
+            },
             { icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20', title: 'System Grid Active', desc: 'All regional smart collection tracking protocols verifying clear.', time: 'Online' }
         ];
     };
