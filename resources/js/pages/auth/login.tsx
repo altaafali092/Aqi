@@ -10,10 +10,12 @@ import { Spinner } from '@/components/ui/spinner';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
+import { Ward } from '@/types/Admin/Ward';
 
 type Props = {
     status?: string;
     canResetPassword: boolean;
+    
 };
 
 export default function Login({ status, canResetPassword }: Props) {

@@ -6,18 +6,23 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Citizen\CitizenRequest;
 use App\Http\Requests\Citizen\LoginRequest;
 use App\Models\Citizen;
-use Illuminate\Support\Facades\Auth;
-
+use App\Models\Ward;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class AuthController extends Controller
 {
-    //
     public function citizenRegisterPage()
     {
-        return Inertia::render('auth/citizenRegister');
+        $wards = Ward::all();
+
+        return Inertia::render('auth/citizenRegister', [
+            'wards' => $wards,
+        ]);
     }
+    
+
     public function citizenRegisterStore(CitizenRequest $request)
     {
 
@@ -27,7 +32,8 @@ class AuthController extends Controller
 
         return to_route('home');
     }
-    public function    citizenLoginPage()
+
+    public function citizenLoginPage()
     {
         return Inertia::render('auth/citizenLogin');
     }
@@ -45,6 +51,7 @@ class AuthController extends Controller
             return to_route('home');
         }
         Inertia::flash('toast', ['type' => 'error', 'message' => 'Login Failed']);
+
         return back();
     }
 

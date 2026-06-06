@@ -13,7 +13,10 @@ class WardSeeder extends Seeder
     public function run(): void
     {
         for ($i = 1; $i <= 23; $i++) {
-            Ward::create(['number' => $i, 'name' => "Ward $i, Nepalgunj"]);
+            Ward::updateOrCreate(
+                ['number' => $i],
+                ['name' => "Ward $i, Nepalgunj"]
+            );
         }
     }
 }
