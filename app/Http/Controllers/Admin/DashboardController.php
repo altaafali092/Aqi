@@ -31,6 +31,7 @@ class DashboardController extends Controller
             'latestWasteCollection',
         ])->get()->map(function ($ward) {
             $aqi = $ward->latestAirQualityReading?->aqi ?? 0;
+            $latestWaste = $ward->latestWasteCollection;
 
             // Dynamic priorities based on thresholds
             $priority = 'Low';
@@ -46,17 +47,19 @@ class DashboardController extends Controller
                 'id' => $ward->id,
                 'ward' => $ward->name,
                 'aqi' => $aqi,
-                'waste' => round($ward->latestWasteCollection?->tons ?? 0, 1),
-                'collected' => (bool) ($ward->latestWasteCollection?->is_collected ?? false),
+                'waste' => round(($latestWaste?->weight_kg ?? 0) / 1000, 2),
+                'collected' => $latestWaste?->collection_date
+                    ? ! Carbon::parse($latestWaste->collection_date)->isFuture()
+                    : false,
                 'priority' => $priority,
-                'updated_at' => $ward->latestWasteCollection?->updated_at ? Carbon::parse($ward->latestWasteCollection->updated_at)->diffForHumans() : 'N/A',
+                'updated_at' => $latestWaste?->updated_at ? Carbon::parse($latestWaste->updated_at)->diffForHumans() : 'N/A',
             ];
         });
 
         // --- 2. KPI METRICS (DAILY & MONTHLY TOTALS) ---
-        $wasteQueryDaily = MunicipalWaste::whereDate('created_at', Carbon::today());
-        $wasteQueryMonthly = MunicipalWaste::whereMonth('created_at', Carbon::now()->month)
-            ->whereYear('created_at', Carbon::now()->year);
+        $wasteQueryDaily = MunicipalWaste::whereDate('collection_date', Carbon::today());
+        $wasteQueryMonthly = MunicipalWaste::whereMonth('collection_date', Carbon::now()->month)
+            ->whereYear('collection_date', Carbon::now()->year);
 
         // Filter queries scope if citizen
         if ($role === 'citizen' && $wardId) {
@@ -64,8 +67,8 @@ class DashboardController extends Controller
             $wasteQueryMonthly->where('ward_id', $wardId);
         }
 
-        $totalWasteToday = $wasteQueryDaily->sum('tons');
-        $totalWasteThisMonth = $wasteQueryMonthly->sum('tons');
+        $totalWasteToday = $wasteQueryDaily->sum('weight_kg') / 1000;
+        $totalWasteThisMonth = $wasteQueryMonthly->sum('weight_kg') / 1000;
 
         // --- 3. WARD AQI 7-DAY TREND (DYNAMIC OR WARD 5 SPECIFIC) ---
         $historicalQuery = IotReading::query();
@@ -83,26 +86,43 @@ class DashboardController extends Controller
             $historicalQuery->where('ward_id', $targetWardId);
         }
 
-        $dbHistoricalData = $historicalQuery->latest()
+        $dbHistoricalData = $historicalQuery->latest('recorded_at')
             ->take(7)
             ->get()
             ->reverse()
             ->values()
             ->map(function ($reading, $index) {
+                $aqi = $reading->aqi ?? 0;
+
                 return [
-                    'label' => Carbon::parse($reading->created_at)->format('D'),
-                    'value' => $reading->aqi,
+                    'label' => Carbon::parse($reading->recorded_at)->format('D'),
+                    'value' => $aqi,
                     'x' => 50 + ($index * 100),
-                    'y' => 165 - ($reading->aqi * 0.75),
-                    'date' => Carbon::parse($reading->created_at)->format('M d'),
+                    'y' => max(25, min(165, 165 - (($aqi / 200) * 120))),
+                    'date' => Carbon::parse($reading->recorded_at)->format('M d'),
                 ];
             });
+
+        $latestLiveQuery = IotReading::with('ward')->latest('recorded_at');
+        if ($role === 'citizen' && $wardId) {
+            $latestLiveQuery->where('ward_id', $wardId);
+        }
+        $latestLiveReading = $latestLiveQuery->first();
 
         // --- 4. RETURN STRUCT TO INERTIA FRONTEND ---
         return Inertia::render('Admin/dashboard', [
             'dbWardStatusData' => $wardStatusData, // Feeds "Your Ward Status Details" & "Garbage Accumulation Status"
             'dbHistoricalData' => $dbHistoricalData, // Feeds "Ward AQI 7-Day Trend" SVG chart
             'trendTitle' => $trendTargetName.' AQI 7-Day Trend',
+            'liveStation' => $latestLiveReading ? [
+                'id' => $latestLiveReading->id,
+                'ward_id' => $latestLiveReading->ward_id,
+                'ward' => $latestLiveReading->ward?->name ?? 'Ward '.$latestLiveReading->ward_id,
+                'aqi' => $latestLiveReading->aqi ?? 0,
+                'pm2_5' => $latestLiveReading->pm2_5,
+                'pm10' => $latestLiveReading->pm10,
+                'recorded_at' => $latestLiveReading->recorded_at?->toDateTimeString(),
+            ] : null,
             'kpiMetrics' => [
                 'totalWasteToday' => round($totalWasteToday, 1),
                 'totalWasteThisMonth' => round($totalWasteThisMonth, 1),

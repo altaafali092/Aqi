@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import { dashboard } from '@/routes/admin';
 import {
     Wind, Trash2, HeartPulse, Truck, AlertTriangle, Calendar,
-    TrendingUp, TrendingDown, CloudRain, CheckCircle2, Clock, Flame
+    CheckCircle2, Clock, Flame
 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { dashboard } from '@/routes/admin';
 
 // ─── Interfaces matching Laravel Payload ───────────────────────────────────
 
@@ -32,6 +32,16 @@ interface KpiMetrics {
     totalWasteThisMonth: number;
 }
 
+interface LiveStation {
+    id: number;
+    ward_id: number;
+    ward: string;
+    aqi: number;
+    pm2_5: number | null;
+    pm10: number | null;
+    recorded_at: string | null;
+}
+
 interface PageProps {
     auth: {
         user: {
@@ -43,24 +53,49 @@ interface PageProps {
     dbWardStatusData: WardStatusItem[];
     dbHistoricalData: HistoricalAqiItem[];
     trendTitle: string;
+    liveStation: LiveStation | null;
     kpiMetrics: KpiMetrics;
 }
 
 // ─── Utility Styling Helpers ────────────────────────────────────────────────
 
 function getAqiStatus(value: number) {
-    if (value <= 50) return { label: 'Good', color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-500/10', dot: '#34d399' };
-    if (value <= 100) return { label: 'Moderate', color: 'text-yellow-500', bg: 'bg-yellow-100 dark:bg-yellow-500/10', dot: '#fbbf24' };
-    if (value <= 150) return { label: 'Unhealthy (Sensitive)', color: 'text-amber-500', bg: 'bg-amber-100 dark:bg-amber-500/10', dot: '#f59e0b' };
-    if (value <= 200) return { label: 'Unhealthy', color: 'text-rose-500', bg: 'bg-rose-100 dark:bg-rose-500/10', dot: '#f43f5e' };
+    if (value <= 50) {
+return { label: 'Good', color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-500/10', dot: '#34d399' };
+}
+
+    if (value <= 100) {
+return { label: 'Moderate', color: 'text-yellow-500', bg: 'bg-yellow-100 dark:bg-yellow-500/10', dot: '#fbbf24' };
+}
+
+    if (value <= 150) {
+return { label: 'Unhealthy (Sensitive)', color: 'text-amber-500', bg: 'bg-amber-100 dark:bg-amber-500/10', dot: '#f59e0b' };
+}
+
+    if (value <= 200) {
+return { label: 'Unhealthy', color: 'text-rose-500', bg: 'bg-rose-100 dark:bg-rose-500/10', dot: '#f43f5e' };
+}
+
     return { label: 'Very Unhealthy', color: 'text-purple-500', bg: 'bg-purple-100 dark:bg-purple-500/10', dot: '#a855f7' };
 }
 
 function getDotColor(v: number) {
-    if (v <= 50) return '#34d399';
-    if (v <= 100) return '#fbbf24';
-    if (v <= 150) return '#f59e0b';
-    if (v <= 200) return '#f43f5e';
+    if (v <= 50) {
+return '#34d399';
+}
+
+    if (v <= 100) {
+return '#fbbf24';
+}
+
+    if (v <= 150) {
+return '#f59e0b';
+}
+
+    if (v <= 200) {
+return '#f43f5e';
+}
+
     return '#a855f7';
 }
 
@@ -105,6 +140,7 @@ export default function Dashboard() {
     const [dbWardStatusData, setDbWardStatusData] = useState<WardStatusItem[]>(pageProps.dbWardStatusData ?? []);
     const [dbHistoricalData, setDbHistoricalData] = useState<HistoricalAqiItem[]>(pageProps.dbHistoricalData ?? []);
     const [trendTitle, setTrendTitle] = useState<string>(pageProps.trendTitle ?? 'AQI Historical Trend');
+    const [liveStation, setLiveStation] = useState<LiveStation | null>(pageProps.liveStation ?? null);
     const [kpiMetrics, setKpiMetrics] = useState<KpiMetrics>(pageProps.kpiMetrics ?? { totalWasteToday: 0, totalWasteThisMonth: 0 });
 
     const user = auth?.user;
@@ -114,35 +150,47 @@ export default function Dashboard() {
 
     // Locate current citizen ward entry context if applicable
     const userWard = isCitizen && wardId ? dbWardStatusData.find(w => w.id === Number(wardId)) : null;
+    const referenceWard = userWard ?? dbWardStatusData[0] ?? null;
 
-    // Live Ticker Simulation Engine tied to current backend base limits
-    const baseAqi = userWard ? userWard.aqi : (dbWardStatusData[0]?.aqi ?? 100);
-    const [liveAqi, setLiveAqi] = useState(baseAqi);
-
-    useEffect(() => {
-        setLiveAqi(baseAqi);
-    }, [baseAqi]);
-
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setLiveAqi(prev => Math.max(0, Math.min(500, prev + Math.floor(Math.random() * 5) - 2)));
-        }, 4000);
-        return () => clearInterval(timer);
-    }, []);
+    // Live station value comes from the latest telemetry row saved by /api/iot/telemetry.
+    const baseAqi = liveStation?.aqi ?? referenceWard?.aqi ?? 0;
+    const liveAqi = baseAqi;
 
     // Fetch dynamic dashboard payload if available
     useEffect(() => {
-        fetch('/admin/iot-readings/dashboard-data')
-            .then(res => res.ok ? res.json() : Promise.reject('no-data'))
-            .then(data => {
-                if (data.dbWardStatusData) setDbWardStatusData(data.dbWardStatusData);
-                if (data.dbHistoricalData) setDbHistoricalData(data.dbHistoricalData);
-                if (data.trendTitle) setTrendTitle(data.trendTitle);
-                if (data.kpiMetrics) setKpiMetrics(data.kpiMetrics);
-            })
-            .catch(() => {
-                // Keep server-provided props if endpoint missing
-            });
+        const refreshDashboardData = () => {
+            fetch('/admin/iot-readings/dashboard-data')
+                .then(res => res.ok ? res.json() : Promise.reject('no-data'))
+                .then(data => {
+                    if (data.dbWardStatusData) {
+setDbWardStatusData(data.dbWardStatusData);
+}
+
+                    if (data.dbHistoricalData) {
+setDbHistoricalData(data.dbHistoricalData);
+}
+
+                    if (data.trendTitle) {
+setTrendTitle(data.trendTitle);
+}
+
+                    if ('liveStation' in data) {
+setLiveStation(data.liveStation);
+}
+
+                    if (data.kpiMetrics) {
+setKpiMetrics(data.kpiMetrics);
+}
+                })
+                .catch(() => {
+                    // Keep server-provided props if endpoint missing
+                });
+        };
+
+        refreshDashboardData();
+        const timer = window.setInterval(refreshDashboardData, 5000);
+
+        return () => window.clearInterval(timer);
     }, []);
 
     const aqiStatus = getAqiStatus(liveAqi);
@@ -227,7 +275,7 @@ export default function Dashboard() {
                         label={isCitizen ? "Your Local AQI" : "Regional Reference AQI"}
                         value={liveAqi}
                         badge={aqiStatus.label}
-                        trendLabel="Refreshes dynamically"
+                        trendLabel={liveStation?.recorded_at ? `Updated ${new Date(liveStation.recorded_at).toLocaleTimeString()}` : 'Waiting for telemetry'}
                         color="text-cyan-500"
                         delay={0}
                     />
@@ -347,6 +395,7 @@ export default function Dashboard() {
                                 dbWardStatusData.map((w, i) => {
                                     const percentage = maxGarbage > 0 ? (w.waste / maxGarbage) * 100 : 0;
                                     const isOverload = w.waste >= 7.0;
+
                                     return (
                                         <div key={i} className="space-y-1.5">
                                             <div className="flex items-center justify-between text-xs font-bold">
@@ -433,6 +482,7 @@ export default function Dashboard() {
                                                 'Medium': 'text-amber-600 bg-amber-50 dark:bg-amber-500/10',
                                                 'Low': 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10',
                                             };
+
                                             return (
                                                 <tr key={i} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors">
                                                     <td className="py-3 font-bold text-slate-700 dark:text-slate-300">{row.ward}</td>

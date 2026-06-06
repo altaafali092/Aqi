@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\IotReading;
+use App\Models\MunicipalWaste;
 use App\Models\Ward;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -76,44 +78,72 @@ class IotReadingController extends Controller
 
         $dbWardStatusData = $wards->map(function($ward) {
             $latest = IotReading::where('ward_id', $ward->id)->latest('recorded_at')->first();
+            $latestWaste = MunicipalWaste::where('ward_id', $ward->id)->latest()->first();
+            $aqi = $latest?->aqi ?? 0;
+
             return [
                 'id' => $ward->id,
                 'ward' => $ward->name ?: 'Ward '.$ward->number,
-                'aqi' => $latest->aqi ?? rand(40,160),
-                'waste' => $latest->waste ?? rand(0,10),
-                'collected' => $latest->collected ?? (bool) rand(0,1),
-                'priority' => $latest && isset($latest->aqi) ? ($latest->aqi > 150 ? 'Critical' : ($latest->aqi > 100 ? 'High' : ($latest->aqi > 60 ? 'Medium' : 'Low'))) : 'Low',
-                'updated_at' => $latest->recorded_at ?? now()->toDateTimeString(),
+                'aqi' => $aqi,
+                'waste' => round(($latestWaste?->weight_kg ?? 0) / 1000, 2),
+                'collected' => $latestWaste?->collection_date
+                    ? ! Carbon::parse($latestWaste->collection_date)->isFuture()
+                    : false,
+                'priority' => $aqi > 180 ? 'Critical' : ($aqi > 140 ? 'High' : ($aqi > 95 ? 'Medium' : 'Low')),
+                'updated_at' => $latest?->recorded_at
+                    ? Carbon::parse($latest->recorded_at)->diffForHumans()
+                    : 'No telemetry yet',
             ];
         })->values();
 
         // Historical averages for last 7 days (daily average AQI)
         $historical = [];
         for ($i = 6; $i >= 0; $i--) {
-            $date = \Carbon\Carbon::now()->subDays($i)->toDateString();
-            $avg = IotReading::whereDate('recorded_at', $date)->avg('aqi');
-            $value = $avg ? round($avg) : rand(40,140);
+            $date = Carbon::now()->subDays($i)->toDateString();
+            $dailyReadingsQuery = IotReading::whereDate('recorded_at', $date);
+            if ($user && isset($user->ward_id)) {
+                $dailyReadingsQuery->where('ward_id', $user->ward_id);
+            }
+            $dailyAqiValues = $dailyReadingsQuery->get()->pluck('aqi')->filter(fn ($aqi) => $aqi !== null);
+            $value = $dailyAqiValues->isNotEmpty() ? (int) round($dailyAqiValues->avg()) : 0;
             $historical[] = [
-                'label' => \Carbon\Carbon::parse($date)->format('d M'),
+                'label' => Carbon::parse($date)->format('d M'),
                 'value' => $value,
                 'x' => 40 + (6 - $i) * 95,
-                'y' => 165 - (($value / 200) * 120),
+                'y' => max(25, min(165, 165 - (($value / 200) * 120))),
                 'date' => $date,
             ];
         }
 
-        $totalWasteToday = (int) IotReading::whereDate('recorded_at', \Carbon\Carbon::today())->sum('waste');
-        $totalWasteThisMonth = (int) IotReading::whereBetween('recorded_at', [\Carbon\Carbon::now()->firstOfMonth(), \Carbon\Carbon::now()->endOfMonth()])->sum('waste');
+        $wasteTodayQuery = MunicipalWaste::whereDate('collection_date', Carbon::today());
+        $wasteMonthQuery = MunicipalWaste::whereBetween('collection_date', [Carbon::now()->firstOfMonth(), Carbon::now()->endOfMonth()]);
+        $liveStationQuery = IotReading::with('ward')->latest('recorded_at');
+        if ($user && isset($user->ward_id)) {
+            $wasteTodayQuery->where('ward_id', $user->ward_id);
+            $wasteMonthQuery->where('ward_id', $user->ward_id);
+            $liveStationQuery->where('ward_id', $user->ward_id);
+        }
+        $latestLiveReading = $liveStationQuery->first();
+        $totalWasteToday = $wasteTodayQuery->sum('weight_kg') / 1000;
+        $totalWasteThisMonth = $wasteMonthQuery->sum('weight_kg') / 1000;
 
         return response()->json([
             'dbWardStatusData' => $dbWardStatusData,
             'dbHistoricalData' => $historical,
             'trendTitle' => '7-day AQI Average',
+            'liveStation' => $latestLiveReading ? [
+                'id' => $latestLiveReading->id,
+                'ward_id' => $latestLiveReading->ward_id,
+                'ward' => $latestLiveReading->ward?->name ?? 'Ward '.$latestLiveReading->ward_id,
+                'aqi' => $latestLiveReading->aqi ?? 0,
+                'pm2_5' => $latestLiveReading->pm2_5,
+                'pm10' => $latestLiveReading->pm10,
+                'recorded_at' => $latestLiveReading->recorded_at?->toDateTimeString(),
+            ] : null,
             'kpiMetrics' => [
-                'totalWasteToday' => $totalWasteToday,
-                'totalWasteThisMonth' => $totalWasteThisMonth,
+                'totalWasteToday' => round($totalWasteToday, 1),
+                'totalWasteThisMonth' => round($totalWasteThisMonth, 1),
             ],
         ]);
     }
 }
-
