@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { dashboard } from '@/routes/admin';
 import {
     Wind, Trash2, HeartPulse, Truck, AlertTriangle,
     TrendingUp, TrendingDown, CloudRain, CheckCircle2, Clock, Flame
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-// ─── Data ────────────────────────────────────────────────────────────────────
+// ─── Data Generation (Wards 1 to 23) ──────────────────────────────────────────
 
 const aqiTrendData = [
     { label: 'Mon', value: 85,  x: 50,  y: 130 },
@@ -18,16 +19,37 @@ const aqiTrendData = [
     { label: 'Sun', value: 102, x: 650, y: 118 },
 ];
 
-const wardGarbageData = [
-    { ward: 'Ward 1', tons: 4.2,  collected: true  },
-    { ward: 'Ward 2', tons: 7.8,  collected: false },
-    { ward: 'Ward 3', tons: 3.1,  collected: true  },
-    { ward: 'Ward 4', tons: 9.5,  collected: false },
-    { ward: 'Ward 5', tons: 5.6,  collected: true  },
-    { ward: 'Ward 6', tons: 6.3,  collected: false },
-    { ward: 'Ward 7', tons: 2.8,  collected: true  },
-    { ward: 'Ward 8', tons: 8.1,  collected: false },
-];
+const wardGarbageData = Array.from({ length: 23 }, (_, i) => {
+    const num = i + 1;
+    const tons = Math.round(((num * 0.7 + 2.1) % 8.5 + 1.5) * 10) / 10;
+    return {
+        id: num,
+        ward: `Ward ${num}`,
+        tons,
+        collected: num % 2 !== 0,
+    };
+});
+
+const wardStatusData = Array.from({ length: 23 }, (_, i) => {
+    const num = i + 1;
+    const aqi = (num * 11 + 47) % 160 + 55;
+    const tons = Math.round(((num * 0.7 + 2.1) % 8.5 + 1.5) * 10) / 10;
+    const collected = num % 2 !== 0;
+    
+    let priority = 'Low';
+    if (aqi > 180) priority = 'Critical';
+    else if (aqi > 140) priority = 'High';
+    else if (aqi > 95) priority = 'Medium';
+
+    return {
+        id: num,
+        ward: `Ward ${num}`,
+        aqi,
+        waste: tons,
+        collected,
+        priority,
+    };
+});
 
 const maxGarbage = Math.max(...wardGarbageData.map(w => w.tons));
 
@@ -83,7 +105,10 @@ function KpiCard({ icon: Icon, label, value, unit, badge, trend, trendLabel, col
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{label}</p>
             {trendLabel && (
-                <div className={`flex items-center gap-1 mt-2 text-xs font-semibold ${trend === 'up' ? 'text-rose-500' : 'text-emerald-500'}`}>
+                <div className={cn(
+                    "flex items-center gap-1 mt-2 text-xs font-semibold",
+                    trend === 'up' ? 'text-rose-500' : 'text-emerald-500'
+                )}>
                     {trend === 'up' ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                     {trendLabel}
                 </div>
@@ -95,7 +120,21 @@ function KpiCard({ icon: Icon, label, value, unit, badge, trend, trendLabel, col
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-    const [liveAqi, setLiveAqi] = useState(134);
+    const { auth } = usePage().props as any;
+    const user = auth?.user;
+    const role = user?.role || 'citizen';
+    const wardId = user?.ward_id;
+
+    const isCitizen = role === 'citizen';
+    const userWard = wardStatusData.find(w => w.id === Number(wardId));
+
+    // Dynamic starting point for Live AQI based on role
+    const baseAqi = (isCitizen && userWard) ? userWard.aqi : 134;
+    const [liveAqi, setLiveAqi] = useState(baseAqi);
+
+    useEffect(() => {
+        setLiveAqi(baseAqi);
+    }, [baseAqi]);
 
     useEffect(() => {
         const id = setInterval(() => {
@@ -106,9 +145,94 @@ export default function Dashboard() {
 
     const aqiStatus = getAqiStatus(liveAqi);
 
-    // Build SVG line path from trend data
-    const linePath   = aqiTrendData.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
-    const areaPath   = linePath + ` L ${aqiTrendData.at(-1)!.x},165 L ${aqiTrendData[0].x},165 Z`;
+    // Compute trend coordinates offset dynamically
+    const offset = baseAqi - 134;
+    const currentTrendData = aqiTrendData.map(p => {
+        const adjustedValue = Math.max(10, Math.min(300, p.value + offset));
+        const adjustedY = Math.max(10, Math.min(180, 165 - (adjustedValue * 0.75)));
+        return {
+            ...p,
+            value: adjustedValue,
+            y: adjustedY
+        };
+    });
+
+    const linePath = currentTrendData.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+    const areaPath = linePath + ` L ${currentTrendData.at(-1)!.x},165 L ${currentTrendData[0].x},165 Z`;
+
+    // Filter garbage data and status lists
+    const displayedGarbageData = (isCitizen && wardId)
+        ? wardGarbageData.filter(w => w.id === Number(wardId))
+        : wardGarbageData;
+
+    const displayedStatusData = (isCitizen && wardId)
+        ? wardStatusData.filter(w => w.id === Number(wardId))
+        : wardStatusData;
+
+    // Localized health advisory advisor logic for citizen view
+    const getCitizenAdvisories = () => {
+        if (!userWard) return [];
+        const advisories = [];
+        
+        if (userWard.aqi > 150) {
+            advisories.push({
+                icon: Flame,
+                color: 'text-rose-500',
+                bg: 'bg-rose-50 dark:bg-rose-500/10',
+                border: 'border-rose-200 dark:border-rose-500/20',
+                title: `Hazardous Air in Ward ${wardId}`,
+                desc: 'AQI is critical. Avoid outdoor exercises and close ventilation.',
+                time: 'Just now'
+            });
+        } else if (userWard.aqi > 95) {
+            advisories.push({
+                icon: AlertTriangle,
+                color: 'text-amber-500',
+                bg: 'bg-amber-50 dark:bg-amber-500/10',
+                border: 'border-amber-200 dark:border-amber-500/20',
+                title: `Elevated Pollutants in Ward ${wardId}`,
+                desc: 'AQI is moderate. Sensitive individuals should wear masks outdoors.',
+                time: '5 mins ago'
+            });
+        } else {
+            advisories.push({
+                icon: CheckCircle2,
+                color: 'text-emerald-500',
+                bg: 'bg-emerald-50 dark:bg-emerald-500/10',
+                border: 'border-emerald-200 dark:border-emerald-500/20',
+                title: `Clean Air in Ward ${wardId}`,
+                desc: 'Air index is green. Excellent conditions for outdoor walks.',
+                time: 'Active'
+            });
+        }
+
+        if (!userWard.collected) {
+            advisories.push({
+                icon: Wind,
+                color: 'text-cyan-500',
+                bg: 'bg-cyan-50 dark:bg-cyan-500/10',
+                border: 'border-cyan-200 dark:border-cyan-500/20',
+                title: 'Disposal collection scheduled',
+                desc: `Waste collection route for Ward ${wardId} is active. Ensure bins are accessible.`,
+                time: 'Pending Collection'
+            });
+        } else {
+            advisories.push({
+                icon: CheckCircle2,
+                color: 'text-emerald-500',
+                bg: 'bg-emerald-50 dark:bg-emerald-500/10',
+                border: 'border-emerald-200 dark:border-emerald-500/20',
+                title: 'Disposal clearance completed',
+                desc: `Municipal collection crew completed garbage disposal in Ward ${wardId}.`,
+                time: 'Cleared Today'
+            });
+        }
+        return advisories;
+    };
+
+    const displayedAdvisories = (isCitizen && userWard)
+        ? getCitizenAdvisories()
+        : healthAdvisories;
 
     return (
         <>
@@ -119,10 +243,21 @@ export default function Dashboard() {
                 {/* ── Header ──────────────────────────────────────── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-extrabold tracking-tight">Environmental Dashboard</h1>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Real-time city AQI & waste management overview</p>
+                        <h1 className="text-2xl font-extrabold tracking-tight">
+                            {isCitizen && wardId ? `Ward ${wardId} Environmental Monitor` : "Environmental Dashboard"}
+                        </h1>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                            {isCitizen && wardId 
+                                ? `Real-time localized air quality & waste tracking for Ward ${wardId}`
+                                : "Real-time city AQI & waste management overview"
+                            }
+                        </p>
                     </div>
-                    <div className={`flex items-center gap-2.5 px-4 py-2 rounded-full text-sm font-bold border ${aqiStatus.bg} ${aqiStatus.color} border-current border-opacity-30`}>
+                    <div className={cn(
+                        "flex items-center gap-2.5 px-4 py-2 rounded-full text-sm font-bold border border-current border-opacity-30",
+                        aqiStatus.bg,
+                        aqiStatus.color
+                    )}>
                         <span className="relative flex h-2.5 w-2.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-current"></span>
@@ -134,24 +269,44 @@ export default function Dashboard() {
                 {/* ── KPI Cards ────────────────────────────────────── */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <KpiCard
-                        icon={CloudRain} label="City AQI Index" value={liveAqi} badge={aqiStatus.label}
-                        trend="up" trendLabel="+12 from yesterday"
-                        color="text-cyan-500" delay={0}
+                        icon={CloudRain} 
+                        label={isCitizen ? "Ward AQI Index" : "City AQI Index"} 
+                        value={liveAqi} 
+                        badge={aqiStatus.label}
+                        trend={liveAqi > baseAqi ? "up" : "down"}
+                        trendLabel={isCitizen ? "Fluctuating live" : "+12 from yesterday"}
+                        color="text-cyan-500" 
+                        delay={0}
                     />
                     <KpiCard
-                        icon={Trash2} label="Waste Collected Today" value="38.4" unit="tons"
-                        trend="down" trendLabel="−5% vs yesterday"
-                        color="text-blue-500" delay={80}
+                        icon={Trash2} 
+                        label={isCitizen ? "Ward Waste Generated" : "Waste Collected Today"} 
+                        value={isCitizen && userWard ? userWard.waste : "38.4"} 
+                        unit="tons"
+                        trend={isCitizen ? undefined : "down"}
+                        trendLabel={isCitizen ? (userWard?.collected ? "Collection completed" : "Truck scheduled") : "−5% vs yesterday"}
+                        color="text-blue-500" 
+                        delay={80}
                     />
                     <KpiCard
-                        icon={Truck} label="Fleet on Route" value="14" unit="vehicles"
-                        badge="Active"
-                        color="text-emerald-500" delay={160}
+                        icon={Truck} 
+                        label={isCitizen ? "Collection Status" : "Fleet on Route"} 
+                        value={isCitizen && userWard ? (userWard.collected ? "Cleared" : "Pending") : "14"} 
+                        unit={isCitizen ? "" : "vehicles"}
+                        badge={isCitizen ? (userWard?.collected ? "Done" : "Pending") : "Active"}
+                        trendLabel={isCitizen ? `Ward ${wardId} municipal routes` : "Active routes today"}
+                        color="text-emerald-500" 
+                        delay={160}
                     />
                     <KpiCard
-                        icon={HeartPulse} label="Health Alerts Issued" value="3" badge="Today"
-                        trend="up" trendLabel="2 new alerts"
-                        color="text-rose-500" delay={240}
+                        icon={HeartPulse} 
+                        label={isCitizen ? "Ward Health Status" : "Health Alerts Issued"} 
+                        value={isCitizen && userWard ? (userWard.aqi > 150 ? "Poor" : userWard.aqi > 95 ? "Fair" : "Good") : "3"} 
+                        badge={isCitizen ? undefined : "Today"}
+                        trend={isCitizen ? undefined : "up"}
+                        trendLabel={isCitizen ? (userWard && userWard.aqi > 95 ? "Limit outdoor activities" : "Air conditions optimal") : "2 new alerts"}
+                        color="text-rose-500" 
+                        delay={240}
                     />
                 </div>
 
@@ -163,9 +318,11 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="font-bold text-lg flex items-center gap-2">
                                 <Wind className="w-5 h-5 text-cyan-500" />
-                                AQI 7-Day Trend
+                                {isCitizen ? `Ward ${wardId} AQI 7-Day Trend` : "AQI 7-Day Trend"}
                             </h2>
-                            <span className="text-xs font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">City Average</span>
+                            <span className="text-xs font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">
+                                {isCitizen ? `Ward ${wardId} Station` : "City Average"}
+                            </span>
                         </div>
 
                         <div className="relative" style={{ height: 200 }}>
@@ -208,7 +365,7 @@ export default function Dashboard() {
                                 />
 
                                 {/* Data points */}
-                                {aqiTrendData.map((p, i) => (
+                                {currentTrendData.map((p, i) => (
                                     <g key={i} className="group cursor-pointer">
                                         <circle cx={p.x} cy={p.y} r="18" fill="transparent" />
                                         <circle cx={p.x} cy={p.y} r="5.5"
@@ -240,13 +397,13 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="font-bold text-lg flex items-center gap-2">
                                 <Trash2 className="w-5 h-5 text-blue-500" />
-                                Ward-wise Garbage Volume
+                                {isCitizen ? "Garbage Accumulation Status" : "Ward-wise Garbage Volume"}
                             </h2>
                             <span className="text-xs font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">Tons · Today</span>
                         </div>
 
-                        <div className="space-y-3">
-                            {wardGarbageData.map((w, i) => {
+                        <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
+                            {displayedGarbageData.map((w, i) => {
                                 const pct = (w.tons / maxGarbage) * 100;
                                 const isCritical = w.tons > 7;
                                 return (
@@ -254,8 +411,10 @@ export default function Dashboard() {
                                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400 w-14 shrink-0">{w.ward}</span>
                                         <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-6 overflow-hidden relative group">
                                             <div
-                                                className={`h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden
-                                                    ${isCritical ? 'bg-gradient-to-r from-rose-400 to-rose-500' : 'bg-gradient-to-r from-blue-400 to-blue-500'}`}
+                                                className={cn(
+                                                    "h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden",
+                                                    isCritical ? 'bg-gradient-to-r from-rose-400 to-rose-500' : 'bg-gradient-to-r from-blue-400 to-blue-500'
+                                                )}
                                                 style={{ width: `${pct}%` }}
                                             >
                                                 <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent" />
@@ -265,11 +424,12 @@ export default function Dashboard() {
                                                 {w.tons}t
                                             </span>
                                         </div>
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0
-                                            ${w.collected
+                                        <span className={cn(
+                                            "text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0",
+                                            w.collected
                                                 ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400'
                                                 : 'text-rose-600 bg-rose-50 dark:bg-rose-500/10 dark:text-rose-400'
-                                            }`}>
+                                        )}>
                                             {w.collected ? '✓ Done' : '⏳ Pending'}
                                         </span>
                                     </div>
@@ -296,16 +456,16 @@ export default function Dashboard() {
                     <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
                         <h2 className="font-bold text-lg flex items-center gap-2 mb-5">
                             <HeartPulse className="w-5 h-5 text-rose-500" />
-                            Health Advisories
+                            {isCitizen ? "Your Ward Health Advisories" : "Health Advisories"}
                         </h2>
                         <div className="space-y-3">
-                            {healthAdvisories.map((a, i) => (
-                                <div key={i} className={`flex items-start gap-3 p-3 rounded-xl border ${a.bg} ${a.border}`}>
-                                    <div className={`mt-0.5 shrink-0 ${a.color}`}>
+                            {displayedAdvisories.map((a, i) => (
+                                <div key={i} className={cn("flex items-start gap-3 p-3 rounded-xl border", a.bg, a.border)}>
+                                    <div className={cn("mt-0.5 shrink-0", a.color)}>
                                         <a.icon className="w-4 h-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className={`text-sm font-bold leading-snug ${a.color}`}>{a.title}</p>
+                                        <p className={cn("text-sm font-bold leading-snug", a.color)}>{a.title}</p>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">{a.desc}</p>
                                     </div>
                                     <span className="text-[10px] text-slate-400 shrink-0 mt-0.5 whitespace-nowrap flex items-center gap-1">
@@ -313,6 +473,9 @@ export default function Dashboard() {
                                     </span>
                                 </div>
                             ))}
+                            {displayedAdvisories.length === 0 && (
+                                <p className="text-xs text-slate-400 text-center py-6">No active health advisories for your ward.</p>
+                            )}
                         </div>
                     </div>
 
@@ -320,9 +483,9 @@ export default function Dashboard() {
                     <div className="lg:col-span-3 bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
                         <h2 className="font-bold text-lg flex items-center gap-2 mb-5">
                             <Truck className="w-5 h-5 text-emerald-500" />
-                            Ward Status Overview
+                            {isCitizen ? "Your Ward Status Details" : "Ward Status Overview"}
                         </h2>
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto max-h-[280px] overflow-y-auto pr-1">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-slate-100 dark:border-slate-800">
@@ -334,16 +497,7 @@ export default function Dashboard() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800/60">
-                                    {[
-                                        { ward: 'Ward 1', aqi: 88,  waste: 4.2, collected: true,  priority: 'Low'    },
-                                        { ward: 'Ward 2', aqi: 155, waste: 7.8, collected: false, priority: 'High'   },
-                                        { ward: 'Ward 3', aqi: 62,  waste: 3.1, collected: true,  priority: 'Low'    },
-                                        { ward: 'Ward 4', aqi: 192, waste: 9.5, collected: false, priority: 'Critical'},
-                                        { ward: 'Ward 5', aqi: 105, waste: 5.6, collected: true,  priority: 'Medium' },
-                                        { ward: 'Ward 6', aqi: 140, waste: 6.3, collected: false, priority: 'High'   },
-                                        { ward: 'Ward 7', aqi: 77,  waste: 2.8, collected: true,  priority: 'Low'    },
-                                        { ward: 'Ward 8', aqi: 168, waste: 8.1, collected: false, priority: 'Critical'},
-                                    ].map((row, i) => {
+                                    {displayedStatusData.map((row, i) => {
                                         const s = getAqiStatus(row.aqi);
                                         const priorityStyle: Record<string, string> = {
                                             'Critical': 'text-rose-600 bg-rose-50 dark:bg-rose-500/10 dark:text-rose-400',
